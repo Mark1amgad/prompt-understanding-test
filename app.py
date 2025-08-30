@@ -136,10 +136,13 @@ def overall_evaluate(prompt: str, response: str):
 def run_test(prompt, model_repo, max_new_tokens, temperature):
     response, ok, status = generate_response(prompt, model_repo, max_new_tokens, temperature)
     if not response:
-        return "", status, {}, ""
+        return "", status, {}, "", 0   # 🟢 هنا بيرجع 5 قيم
+
     score, verdict, details = overall_evaluate(prompt, response)
     details_txt = "\n".join([f"- {k}: {v}" for k, v in details.items()])
-    return response, verdict, details, details_txt, details["الدرجة الكلية (0-100)"]
+
+    return response, verdict, details, details_txt, details["الدرجة الكلية (0-100)"]  # 🟢 5 قيم
+
 
 
 
