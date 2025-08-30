@@ -139,7 +139,8 @@ def run_test(prompt, model_repo, max_new_tokens, temperature):
         return "", status, {}, ""
     score, verdict, details = overall_evaluate(prompt, response)
     details_txt = "\n".join([f"- {k}: {v}" for k, v in details.items()])
-    return response, verdict, details, details_txt
+    return response, verdict, details, details_txt, details["الدرجة الكلية (0-100)"]
+
 
 # ------------- UI -------------
 with gr.Blocks(title="اختبار فهم النماذج للنصوص") as demo:
@@ -173,11 +174,14 @@ with gr.Blocks(title="اختبار فهم النماذج للنصوص") as demo:
     verdict = gr.Label(label="تقييم الفهم")
     details_dict = gr.JSON(label="تفاصيل الدرجات", value={})
     details_txt = gr.Textbox(label="تفاصيل نصية", lines=6)
+    score_bar = gr.Slider(0, 100, value=0, label="الدرجة الكلية", interactive=False)
 
-    btn.click(
+    btn.click
+    (
         fn=run_test,
         inputs=[prompt, model_repo, max_new_tokens, temperature],
-        outputs=[response, verdict, details_dict, details_txt]
+        outputs=[response, verdict, details_dict, details_txt, score_bar]
+
     )
 
 if __name__ == "__main__":
