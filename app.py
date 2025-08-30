@@ -28,6 +28,26 @@ def generate_response(prompt: str, model_repo: str = DEFAULT_MODEL, max_new_toke
         return "", 0.0, "الـPrompt فارغ."
     token = HF_TOKEN
     if token is None:
+        return "", 0.0, "⚠️ لم يتم ضبط مفتاح HF_TOKEN في إعدادات الـSpace."
+
+    client = InferenceClient(model=model_repo, token=token)
+    try:
+        # استخدام واجهة chat بدل text_generation
+        chat_completion = client.chat.completions.create(
+            model=model_repo,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_new_tokens,
+            temperature=temperature,
+        )
+        text = chat_completion.choices[0].message["content"]
+        return text, 1.0, "تم بنجاح."
+    except Exception as e:
+        return "", 0.0, f"حدث خطأ أثناء توليد النص من النموذج: {e}"
+
+    if not prompt or not prompt.strip():
+        return "", 0.0, "الـPrompt فارغ."
+    token = HF_TOKEN
+    if token is None:
         return "", 0.0, "⚠️ لم يتم ضبط مفتاح HF_TOKEN في إعدادات الـSpace (Settings → Secrets)."
 
     client = InferenceClient(model=model_repo, token=token)
