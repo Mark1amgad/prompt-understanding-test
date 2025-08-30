@@ -27,7 +27,7 @@ def generate_response(prompt: str, model_repo: str = DEFAULT_MODEL, max_new_toke
 
     client = InferenceClient(model=model_repo, token=token)
     try:
-        # ✅ استخدام واجهة chat بدلاً من text_generation
+        # ✅ استخدام واجهة chat
         chat_completion = client.chat.completions.create(
             model=model_repo,
             messages=[{"role": "user", "content": prompt}],
@@ -136,15 +136,12 @@ def overall_evaluate(prompt: str, response: str):
 def run_test(prompt, model_repo, max_new_tokens, temperature):
     response, ok, status = generate_response(prompt, model_repo, max_new_tokens, temperature)
     if not response:
-        return "", status, {}, "", 0   # 🟢 هنا بيرجع 5 قيم
+        return "", status, {}, "", 0   # ✅ 5 قيم
 
     score, verdict, details = overall_evaluate(prompt, response)
     details_txt = "\n".join([f"- {k}: {v}" for k, v in details.items()])
 
-    return response, verdict, details, details_txt, details["الدرجة الكلية (0-100)"]  # 🟢 5 قيم
-
-
-
+    return response, verdict, details, details_txt, details["الدرجة الكلية (0-100)"]  # ✅ 5 قيم
 
 # ------------- UI -------------
 with gr.Blocks(theme="soft", title="اختبار فهم النماذج للنصوص") as demo:
@@ -198,3 +195,6 @@ with gr.Blocks(theme="soft", title="اختبار فهم النماذج للنص�
     ex1.click(lambda: "اكتب قائمة من 5 أفكار مبتكرة لمشروع تخرج في الذكاء الاصطناعي.", outputs=prompt)
     ex2.click(lambda: "اكتب كود Python يقرأ ملف CSV ويطبع أول 3 صفوف.", outputs=prompt)
     ex3.click(lambda: "Translate this sentence to Arabic: Artificial intelligence can augment human creativity.", outputs=prompt)
+
+if __name__ == "__main__":
+    demo.launch()
