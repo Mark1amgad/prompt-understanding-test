@@ -142,47 +142,56 @@ def run_test(prompt, model_repo, max_new_tokens, temperature):
     return response, verdict, details, details_txt, details["الدرجة الكلية (0-100)"]
 
 
+
 # ------------- UI -------------
-with gr.Blocks(title="اختبار فهم النماذج للنصوص") as demo:
-    gr.Markdown("""
-# 🧪 اختبار فهم النماذج للنصوص (Prompt Understanding Test)
-اكتب أي Prompt وشاهد ردّ النموذج وتقييم الفهم تلقائيًا.
-> **مهم:** يجب ضبط سرّ `HF_TOKEN` من إعدادات الـSpace.
-    """)
+with gr.Blocks(theme="soft", title="اختبار فهم النماذج للنصوص") as demo:
+    gr.Markdown("# 🧪 اختبار فهم النماذج للنصوص (Prompt Understanding Test)")
+    gr.Markdown("> ✨ اكتب أي Prompt وشاهد ردّ النموذج وتقييم الفهم تلقائيًا")
 
     with gr.Row():
         model_repo = gr.Dropdown(
             choices=[
                 "HuggingFaceH4/zephyr-7b-beta",
                 "google/gemma-2-2b-it",
-                "mistralai/Mistral-7B-Instruct-v0.2",
-                "tiiuae/falcon-7b-instruct",
             ],
             value=DEFAULT_MODEL,
             label="HF Model Repo",
-            info="يمكنك تغيير الموديل من هنا",
+            info="اختر الموديل الذي تريد تجربته",
         )
-    prompt = gr.Textbox(lines=6, label="اكتب الـPrompt هنا")
-    with gr.Row():
-        max_new_tokens = gr.Slider(32, 512, value=256, step=1, label="Max New Tokens")
-        temperature = gr.Slider(0.0, 1.5, value=0.7, step=0.05, label="Temperature")
 
-    btn = gr.Button("اختبر الآن ✨")
+    prompt = gr.Textbox(lines=5, label="✍️ اكتب الـPrompt هنا")
 
     with gr.Row():
-        response = gr.Textbox(label="ردّ النموذج", lines=10)
-    verdict = gr.Label(label="تقييم الفهم")
-    details_dict = gr.JSON(label="تفاصيل الدرجات", value={})
-    details_txt = gr.Textbox(label="تفاصيل نصية", lines=6)
-    score_bar = gr.Slider(0, 100, value=0, label="الدرجة الكلية", interactive=False)
+        ex1 = gr.Button("✨ مثال: قائمة أفكار")
+        ex2 = gr.Button("🧑‍💻 مثال: كود Python")
+        ex3 = gr.Button("🌍 مثال: ترجمة")
 
-    btn.click
-    (
+    with gr.Row():
+        max_new_tokens = gr.Slider(32, 512, value=256, step=1, label="🔢 Max New Tokens")
+        temperature = gr.Slider(0.0, 1.5, value=0.7, step=0.05, label="🔥 Temperature")
+
+    btn = gr.Button("🚀 اختبر الآن")
+
+    # -------- Tabs --------
+    with gr.Tab("📝 رد النموذج"):
+        response = gr.Textbox(label="الناتج", lines=10)
+
+    with gr.Tab("✅ التقييم"):
+        verdict = gr.Label(label="الحكم النهائي")
+        score_bar = gr.Slider(0, 100, value=0, label="الدرجة الكلية", interactive=False)
+
+    with gr.Tab("📊 التفاصيل"):
+        details_dict = gr.JSON(label="تفاصيل الدرجات")
+        details_txt = gr.Textbox(label="تفاصيل نصية", lines=6)
+
+    # -------- Actions --------
+    btn.click(
         fn=run_test,
         inputs=[prompt, model_repo, max_new_tokens, temperature],
         outputs=[response, verdict, details_dict, details_txt, score_bar]
-
     )
 
-if __name__ == "__main__":
-    demo.launch()
+    # Examples
+    ex1.click(lambda: "اكتب قائمة من 5 أفكار مبتكرة لمشروع تخرج في الذكاء الاصطناعي.", outputs=prompt)
+    ex2.click(lambda: "اكتب كود Python يقرأ ملف CSV ويطبع أول 3 صفوف.", outputs=prompt)
+    ex3.click(lambda: "Translate this sentence to Arabic: Artificial intelligence can augment human creativity.", outputs=prompt)
