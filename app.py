@@ -60,7 +60,8 @@ def detect_expected_format(prompt: str):
 def format_score(prompt: str, response: str):
     expected = detect_expected_format(prompt)
     if not expected:
-        return 0.5, ["لا يوجد نمط محدد مطلوب في الـPrompt."]
+        return 0.0, ["الـPrompt لا يطلب تنسيقًا محددًا، لذلك لم يتم احتساب درجة تنسيق."]
+
 
     reasons = []
     score = 0.0
