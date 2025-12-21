@@ -18,16 +18,16 @@ def get_embedder():
         _embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     return _embedder
 
+
 def generate_response(prompt: str, model_repo: str = DEFAULT_MODEL, max_new_tokens: int = 256, temperature: float = 0.7):
     if not prompt or not prompt.strip():
         return "", 0.0, "الـPrompt فارغ."
-    token = HF_TOKEN
-    if token is None:
+
+    if HF_TOKEN is None:
         return "", 0.0, "⚠️ لم يتم ضبط مفتاح HF_TOKEN في إعدادات الـSpace."
 
-    client = InferenceClient(model=model_repo, token=token)
+    client = InferenceClient(model=model_repo, token=HF_TOKEN)
     try:
-        # ✅ استخدام واجهة chat
         chat_completion = client.chat.completions.create(
             model=model_repo,
             messages=[{"role": "user", "content": prompt}],
@@ -39,53 +39,57 @@ def generate_response(prompt: str, model_repo: str = DEFAULT_MODEL, max_new_toke
     except Exception as e:
         return "", 0.0, f"حدث خطأ أثناء توليد النص من النموذج: {e}"
 
+
 # ---------- Evaluation ----------
 INSTRUCTION_HINTS = {
     "list_style": ["list", "قائمة", "عدّد", "عد", "bullet", "نقاط", "•", "–", "١.", "1."],
-    "code_style": ["code", "كود", "python", "جافا", "سي", "++c", "javascript", "js", "go", "rust"],
-    "translate": ["ترجم", "translate", "ترجمة", "to english", "إلى العربية", "to arabic"],
-    "summarize": ["خصّص", "اختصر", "لخّص", "summarize", "ملخص", "ملخّص"],
+    "code_style": ["code", "كود", "python", "java", "javascript", "js", "c++", "go", "rust"],
+    "translate": ["ترجم", "translate", "translation", "to english", "to arabic", "إلى العربية"],
+    "summarize": ["اختصر", "لخّص", "summarize", "summary", "ملخص"],
 }
+
 
 def detect_expected_format(prompt: str):
     p = prompt.lower()
     found = set()
-    for k, kws in INSTRUCTION_HINTS.items():
+    for key, kws in INSTRUCTION_HINTS.items():
         for kw in kws:
             if kw in p:
-                found.add(k)
+                found.add(key)
                 break
     return found
 
+
 def format_score(prompt: str, response: str):
     expected = detect_expected_format(prompt)
+
     if not expected:
         return 0.0, ["الـPrompt لا يطلب تنسيقًا محددًا، لذلك لم يتم احتساب درجة تنسيق."]
-
 
     reasons = []
     score = 0.0
 
     if "list_style" in expected:
-        has_bullets = bool(re.search(r"(^|\n)\s*(?:[-*•–]|\d+\.)\s+\S", response))
-        score += 1.0 if has_bullets else 0.0
-        reasons.append("قائمة/نقاط: " + ("✅" if has_bullets else "❌"))
+        has_list = bool(re.search(r"(?:^|\n)\s*(?:[-*•–]|\d+\.)\s+\S+", response))
+        score += 1.0 if has_list else 0.0
+        reasons.append("قائمة/نقاط: " + ("✅" if has_list else "❌"))
 
     if "code_style" in expected:
-        has_codeblock = "```" in response or bool(re.search(r"(^|\n)\s{4}\S", response))
-        score += 1.0 if has_codeblock else 0.0
-        reasons.append("تنسيق كود: " + ("✅" if has_codeblock else "❌"))
+        has_code = bool(re.search(r"```[\s\S]*?```", response))
+        score += 1.0 if has_code else 0.0
+        reasons.append("تنسيق كود: " + ("✅" if has_code else "❌"))
 
     if "translate" in expected:
-        arabic_chars = re.findall(r"[\u0600-\u06FF]", response)
-        latin_chars = re.findall(r"[A-Za-z]", response)
-        has_mix = bool(arabic_chars) and bool(latin_chars)
-        score += 0.8 if has_mix or len(latin_chars) > len(arabic_chars) else 0.0
-        reasons.append("إشارات ترجمة: " + ("✅" if has_mix or len(latin_chars) > len(arabic_chars) else "❌"))
+        arabic = bool(re.search(r"[\u0600-\u06FF]", response))
+        latin = bool(re.search(r"[A-Za-z]", response))
+        has_translation = arabic and latin
+        score += 0.8 if has_translation else 0.0
+        reasons.append("إشارات ترجمة: " + ("✅" if has_translation else "❌"))
 
     if "summarize" in expected:
-        score += 0.8 if len(response.split()) < max(40, len(prompt.split())) else 0.0
-        reasons.append("تلخيص: " + ("✅" if len(response.split()) < max(40, len(prompt.split())) else "❌"))
+        shorter = len(response.split()) < max(40, len(prompt.split()))
+        score += 0.8 if shorter else 0.0
+        reasons.append("تلخيص: " + ("✅" if shorter else "❌"))
 
     max_possible = 0.0
     max_possible += 1.0 if "list_style" in expected else 0.0
@@ -93,7 +97,9 @@ def format_score(prompt: str, response: str):
     max_possible += 0.8 if "translate" in expected else 0.0
     max_possible += 0.8 if "summarize" in expected else 0.0
     max_possible = max(max_possible, 1e-6)
+
     return float(score / max_possible), reasons
+
 
 def similarity_score(prompt: str, response: str):
     emb = get_embedder()
@@ -101,9 +107,11 @@ def similarity_score(prompt: str, response: str):
     sim = cosine_similarity([vecs[0]], [vecs[1]])[0][0]
     return float(sim)
 
+
 def length_score(response: str):
     w = len(response.split())
     return float(np.clip((w - 10) / (60 - 10), 0, 1))
+
 
 def overall_evaluate(prompt: str, response: str):
     try:
@@ -115,13 +123,13 @@ def overall_evaluate(prompt: str, response: str):
     fmt, fmt_reasons = format_score(prompt, response)
     lng = length_score(response)
 
-    # لو الـPrompt لا يطلب تنسيق
-if fmt_reasons and "لا يطلب تنسيقًا" in fmt_reasons[0]:
-    score01 = 0.6 * sim01 + 0.4 * lng
-else:
-    score01 = 0.6 * sim01 + 0.2 * fmt + 0.2 * lng
+    # ⛔ لا نحسب التنسيق لو غير مطلوب
+    if fmt_reasons and "لا يطلب تنسيقًا" in fmt_reasons[0]:
+        score01 = 0.6 * sim01 + 0.4 * lng
+    else:
+        score01 = 0.6 * sim01 + 0.2 * fmt + 0.2 * lng
 
-    score100 = round(100 * score01, 1)
+    score100 = round(score01 * 100, 1)
 
     if score100 >= 70:
         verdict = "✔✔ النموذج فَهِم الـPrompt بشكل جيد"
@@ -135,72 +143,69 @@ else:
         "مطابقة التنسيق (0-100)": round(fmt * 100, 1),
         "ثراء الإجابة (0-100)": round(lng * 100, 1),
         "الدرجة الكلية (0-100)": score100,
-        "ملاحظات التنسيق": " | ".join(fmt_reasons) if fmt_reasons else "لا يوجد نمط مطلوب",
+        "ملاحظات التنسيق": " | ".join(fmt_reasons),
     }
+
     return score100, verdict, details
+
 
 def run_test(prompt, model_repo, max_new_tokens, temperature):
     response, ok, status = generate_response(prompt, model_repo, max_new_tokens, temperature)
     if not response:
-        return "", status, {}, "", 0   # ✅ 5 قيم
+        return "", status, {}, "", 0
 
     score, verdict, details = overall_evaluate(prompt, response)
     details_txt = "\n".join([f"- {k}: {v}" for k, v in details.items()])
 
-    return response, verdict, details, details_txt, details["الدرجة الكلية (0-100)"]  # ✅ 5 قيم
+    return response, verdict, details, details_txt, details["الدرجة الكلية (0-100)"]
+
 
 # ------------- UI -------------
 with gr.Blocks(theme="soft", title="اختبار فهم النماذج للنصوص") as demo:
     gr.Markdown("# 🧪 اختبار فهم النماذج للنصوص (Prompt Understanding Test)")
     gr.Markdown("> ✨ اكتب أي Prompt وشاهد ردّ النموذج وتقييم الفهم تلقائيًا")
 
-    with gr.Row():
-        model_repo = gr.Dropdown(
-            choices=[
-                "HuggingFaceH4/zephyr-7b-beta",
-                "google/gemma-2-2b-it",
-            ],
-            value=DEFAULT_MODEL,
-            label="HF Model Repo",
-            info="اختر الموديل الذي تريد تجربته",
-        )
+    model_repo = gr.Dropdown(
+        choices=[
+            "HuggingFaceH4/zephyr-7b-beta",
+            "google/gemma-2-2b-it",
+        ],
+        value=DEFAULT_MODEL,
+        label="HF Model Repo",
+    )
 
     prompt = gr.Textbox(lines=5, label="✍️ اكتب الـPrompt هنا")
 
     with gr.Row():
-        ex1 = gr.Button("✨ مثال: قائمة أفكار")
-        ex2 = gr.Button("🧑‍💻 مثال: كود Python")
+        ex1 = gr.Button("✨ مثال: قائمة")
+        ex2 = gr.Button("🧑‍💻 مثال: كود")
         ex3 = gr.Button("🌍 مثال: ترجمة")
 
-    with gr.Row():
-        max_new_tokens = gr.Slider(32, 512, value=256, step=1, label="🔢 Max New Tokens")
-        temperature = gr.Slider(0.0, 1.5, value=0.7, step=0.05, label="🔥 Temperature")
+    max_new_tokens = gr.Slider(32, 512, value=256, label="Max New Tokens")
+    temperature = gr.Slider(0.0, 1.5, value=0.7, label="Temperature")
 
     btn = gr.Button("🚀 اختبر الآن")
 
-    # -------- Tabs --------
     with gr.Tab("📝 رد النموذج"):
-        response = gr.Textbox(label="الناتج", lines=10)
+        response = gr.Textbox(lines=10)
 
     with gr.Tab("✅ التقييم"):
-        verdict = gr.Label(label="الحكم النهائي")
-        score_bar = gr.Slider(0, 100, value=0, label="الدرجة الكلية", interactive=False)
+        verdict = gr.Label()
+        score_bar = gr.Slider(0, 100, interactive=False)
 
     with gr.Tab("📊 التفاصيل"):
-        details_dict = gr.JSON(label="تفاصيل الدرجات")
-        details_txt = gr.Textbox(label="تفاصيل نصية", lines=6)
+        details_dict = gr.JSON()
+        details_txt = gr.Textbox(lines=6)
 
-    # -------- Actions --------
     btn.click(
         fn=run_test,
         inputs=[prompt, model_repo, max_new_tokens, temperature],
-        outputs=[response, verdict, details_dict, details_txt, score_bar]
+        outputs=[response, verdict, details_dict, details_txt, score_bar],
     )
 
-    # Examples
-    ex1.click(lambda: "اكتب قائمة من 5 أفكار مبتكرة لمشروع تخرج في الذكاء الاصطناعي.", outputs=prompt)
-    ex2.click(lambda: "اكتب كود Python يقرأ ملف CSV ويطبع أول 3 صفوف.", outputs=prompt)
-    ex3.click(lambda: "Translate this sentence to Arabic: Artificial intelligence can augment human creativity.", outputs=prompt)
+    ex1.click(lambda: "اكتب قائمة من 5 أفكار لمشروع تخرج في الذكاء الاصطناعي.", outputs=prompt)
+    ex2.click(lambda: "اكتب كود Python لحساب المضروب.", outputs=prompt)
+    ex3.click(lambda: "Translate this sentence to Arabic: Artificial intelligence changes the world.", outputs=prompt)
 
 if __name__ == "__main__":
     demo.launch()
