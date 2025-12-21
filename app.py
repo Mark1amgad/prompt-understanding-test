@@ -115,7 +115,12 @@ def overall_evaluate(prompt: str, response: str):
     fmt, fmt_reasons = format_score(prompt, response)
     lng = length_score(response)
 
+    # لو الـPrompt لا يطلب تنسيق
+if fmt_reasons and "لا يطلب تنسيقًا" in fmt_reasons[0]:
+    score01 = 0.6 * sim01 + 0.4 * lng
+else:
     score01 = 0.6 * sim01 + 0.2 * fmt + 0.2 * lng
+
     score100 = round(100 * score01, 1)
 
     if score100 >= 70:
